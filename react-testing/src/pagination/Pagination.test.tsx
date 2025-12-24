@@ -4,6 +4,12 @@ import Pagination from "./Pagination";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 
+vi.mock("../utils", () => {
+  return {
+    range: () => [1, 2, 3, 4, 5],
+  };
+});
+
 describe("Pagination", () => {
   it("renders correct pagination", () => {
     render(<Pagination total={50} limit={10} currentPage={1} />);
