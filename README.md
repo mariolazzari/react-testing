@@ -96,3 +96,5 @@ describe("ErrorMessage", () => {
   });
 });
 ```
+
+### Testing inputs & outputs
