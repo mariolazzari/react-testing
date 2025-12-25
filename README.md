@@ -431,7 +431,7 @@ describe("api", () => {
 
 ### Testing footer
 
-```ts
+```js
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TodosContext } from "../contexts/todos";
@@ -539,7 +539,7 @@ describe("Footer", () => {
         <TodosContext.Provider
           value={[state, mockDispatch, { changeFilter: mockChangeFilter }]}
         >
-          <Footer />
+          <Footer />j
         </TodosContext.Provider>
       );
       const filterLinks = screen.getAllByTestId("filterLink");
@@ -549,3 +549,348 @@ describe("Footer", () => {
   });
 });
 ```
+
+### Custom render
+
+```js
+import React from "react";
+import { render } from "@testing-library/react";
+import { TodosContext } from "../../contexts/todos";
+import { vi } from "vitest";
+
+export function renderWithTodos(
+  ui,
+  {
+    state = { todos: [], filter: "all" },
+    dispatch = vi.fn(),
+    actions = {},
+    ...renderOptions
+  } = {}
+) {
+  function Wrapper({ children }) {
+    return (
+      <TodosContext.Provider value={[state, dispatch, actions]}>
+        {children}
+      </TodosContext.Provider>
+    );
+  }
+
+  return {
+    dispatch,
+    actions,
+    ...render(ui, { wrapper: Wrapper, ...renderOptions }),
+  };
+}
+```
+
+### Testing todo component
+
+```js
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { TodosContext } from "../contexts/todos";
+import Todo from "./Todo";
+import userEvent from "@testing-library/user-event";
+
+describe("Todo", () => {
+  const mockDispatch = vi.fn();
+  const mockUpdateTodo = vi.fn();
+  const mockRemoveTodo = vi.fn();
+  it("renders default state", () => {
+    const todoEntity = { id: "1", text: "foo", isCompleted: false };
+    const mockSetEditingId = vi.fn();
+    render(
+      <TodosContext.Provider
+        value={[
+          {},
+          mockDispatch,
+          { updateTodo: mockUpdateTodo, removeTodo: mockRemoveTodo },
+        ]}
+      >
+        <Todo
+          todo={todoEntity}
+          isEditing={false}
+          setEditingId={mockSetEditingId}
+        />
+      </TodosContext.Provider>
+    );
+    const todo = screen.getByTestId("todo");
+    const edit = screen.queryByTestId("edit");
+    const label = screen.getByTestId("label");
+    expect(todo).not.toHaveClass("completed");
+    expect(todo).not.toHaveClass("editing");
+    expect(edit).not.toBeInTheDocument();
+    expect(label).toHaveTextContent("foo");
+  });
+
+  it("should toggle a todo", async () => {
+    const user = userEvent.setup();
+    const todoEntity = { id: "1", text: "foo", isCompleted: false };
+    const mockSetEditingId = vi.fn();
+    render(
+      <TodosContext.Provider
+        value={[
+          {},
+          mockDispatch,
+          { updateTodo: mockUpdateTodo, removeTodo: mockRemoveTodo },
+        ]}
+      >
+        <Todo
+          todo={todoEntity}
+          isEditing={false}
+          setEditingId={mockSetEditingId}
+        />
+      </TodosContext.Provider>
+    );
+    const toggle = screen.getByTestId("toggle");
+    await user.click(toggle);
+    expect(mockUpdateTodo).toHaveBeenCalledWith(todoEntity.id, {
+      text: todoEntity.text,
+      isCompleted: true,
+    });
+  });
+
+  it("should remove a todo", async () => {
+    const user = userEvent.setup();
+    const todoEntity = { id: "1", text: "foo", isCompleted: false };
+    const mockSetEditingId = vi.fn();
+    render(
+      <TodosContext.Provider
+        value={[
+          {},
+          mockDispatch,
+          { updateTodo: mockUpdateTodo, removeTodo: mockRemoveTodo },
+        ]}
+      >
+        <Todo
+          todo={todoEntity}
+          isEditing={false}
+          setEditingId={mockSetEditingId}
+        />
+      </TodosContext.Provider>
+    );
+    const destroy = screen.getByTestId("destroy");
+    await user.click(destroy);
+    expect(mockRemoveTodo).toHaveBeenCalledWith(todoEntity.id);
+  });
+
+  it("should activate editing mode", async () => {
+    const user = userEvent.setup();
+    const todoEntity = { id: "1", text: "foo", isCompleted: false };
+    const mockSetEditingId = vi.fn();
+    render(
+      <TodosContext.Provider
+        value={[
+          {},
+          mockDispatch,
+          { updateTodo: mockUpdateTodo, removeTodo: mockRemoveTodo },
+        ]}
+      >
+        <Todo
+          todo={todoEntity}
+          isEditing={false}
+          setEditingId={mockSetEditingId}
+        />
+      </TodosContext.Provider>
+    );
+    const label = screen.getByTestId("label");
+    await user.dblClick(label);
+    expect(mockSetEditingId).toHaveBeenCalledWith(todoEntity.id);
+  });
+
+  it("should update todo", async () => {
+    const user = userEvent.setup();
+    const todoEntity = { id: "1", text: "foo", isCompleted: false };
+    const mockSetEditingId = vi.fn();
+    render(
+      <TodosContext.Provider
+        value={[
+          {},
+          mockDispatch,
+          { updateTodo: mockUpdateTodo, removeTodo: mockRemoveTodo },
+        ]}
+      >
+        <Todo
+          todo={todoEntity}
+          isEditing={true}
+          setEditingId={mockSetEditingId}
+        />
+      </TodosContext.Provider>
+    );
+    const edit = screen.getByTestId("edit");
+    await user.clear(edit);
+    await user.type(edit, "bar{enter}");
+    expect(mockUpdateTodo).toHaveBeenCalledWith(todoEntity.id, {
+      text: "bar",
+      isCompleted: false,
+    });
+  });
+
+  it("should focus on the input after editing activation", async () => {
+    const todoEntity = { id: "1", text: "foo", isCompleted: false };
+    const mockSetEditingId = vi.fn();
+    render(
+      <TodosContext.Provider
+        value={[
+          {},
+          mockDispatch,
+          { updateTodo: mockUpdateTodo, removeTodo: mockRemoveTodo },
+        ]}
+      >
+        <Todo
+          todo={todoEntity}
+          isEditing={true}
+          setEditingId={mockSetEditingId}
+        />
+      </TodosContext.Provider>
+    );
+    const edit = screen.getByTestId("edit");
+    expect(edit.matches(":focus")).toEqual(true);
+  });
+});
+```
+
+### Testing main
+
+```js
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { TodosContext } from "../contexts/todos";
+import Main from "./Main";
+import userEvent from "@testing-library/user-event";
+
+const mockTodo = vi.fn();
+vi.mock("./Todo", () => {
+  return {
+    default: props => {
+      mockTodo(props);
+      return <div>todo</div>;
+    },
+  };
+});
+
+describe("Main", () => {
+  const mockDispatch = vi.fn();
+  const mockToggleAll = vi.fn();
+  it("should be hidden wehn no todos", () => {
+    const state = {
+      todos: [],
+      filter: "all",
+    };
+    render(
+      <TodosContext.Provider
+        value={[state, mockDispatch, { toggleAll: mockToggleAll }]}
+      >
+        <Main />
+      </TodosContext.Provider>
+    );
+    expect(screen.getByTestId("main")).toHaveClass("hidden");
+  });
+
+  it("should be visible with todos", () => {
+    const state = {
+      todos: [{ id: "1", text: "foo", isCompleted: false }],
+      filter: "all",
+    };
+    render(
+      <TodosContext.Provider
+        value={[state, mockDispatch, { toggleAll: mockToggleAll }]}
+      >
+        <Main />
+      </TodosContext.Provider>
+    );
+    expect(screen.getByTestId("main")).not.toHaveClass("hidden");
+  });
+
+  it("should render a list of todos", () => {
+    const state = {
+      todos: [
+        { id: "1", text: "foo", isCompleted: false },
+        { id: "2", text: "bar", isCompleted: false },
+      ],
+      filter: "all",
+    };
+    render(
+      <TodosContext.Provider
+        value={[state, mockDispatch, { toggleAll: mockToggleAll }]}
+      >
+        <Main />
+      </TodosContext.Provider>
+    );
+    expect(mockTodo).toHaveBeenCalledTimes(2);
+    expect(mockTodo).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        isEditing: false,
+        todo: {
+          id: "1",
+          text: "foo",
+          isCompleted: false,
+        },
+      })
+    );
+  });
+
+  it("should hightlight toggle all checkbox", () => {
+    const state = {
+      todos: [{ id: "1", text: "foo", isCompleted: true }],
+      filter: "all",
+    };
+    render(
+      <TodosContext.Provider
+        value={[state, mockDispatch, { toggleAll: mockToggleAll }]}
+      >
+        <Main />
+      </TodosContext.Provider>
+    );
+    expect(screen.getByTestId("toggleAll")).toBeChecked();
+  });
+
+  it("should toggle all todos", async () => {
+    const user = userEvent.setup();
+    const state = {
+      todos: [{ id: "1", text: "foo", isCompleted: true }],
+      filter: "all",
+    };
+    render(
+      <TodosContext.Provider
+        value={[state, mockDispatch, { toggleAll: mockToggleAll }]}
+      >
+        <Main />
+      </TodosContext.Provider>
+    );
+    const toggleAll = screen.getByTestId("toggleAll");
+    await user.click(toggleAll);
+    expect(mockToggleAll).toHaveBeenCalledWith(false);
+  });
+});
+```
+
+### Testing setTimeout
+
+```js
+import { act, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import Waiter from "./Waiter";
+
+describe("Waiter", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("renders corrent result", async () => {
+    render(<Waiter />);
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    const waiter = await screen.findByTestId("waiter");
+    expect(waiter).toHaveTextContent("passed");
+  });
+});
+```
+
+## Testing Redux

@@ -105,7 +105,7 @@ describe("Footer", () => {
         <TodosContext.Provider
           value={[state, mockDispatch, { changeFilter: mockChangeFilter }]}
         >
-          <Footer />
+          <Footer />j
         </TodosContext.Provider>
       );
       const filterLinks = screen.getAllByTestId("filterLink");
